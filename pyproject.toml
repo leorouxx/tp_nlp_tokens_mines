@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["tp_tokens"]
+
+[project]
+name = "tp_tokens"
+version = "0.1"
+description = "Travaux pratiques sur les tokens du cours NLP des mines de Paris"
+authors = [{ name = "Georges-Andre Silber", email = "georges-andre.silber@minesparis.psl.eu" }]
+license = { text = "CeCILL-B" }
+readme = "README.md"
+
+keywords = ["nlp"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+   # FIXME
+]
+
+
+[project.scripts]
+# FIXME
+# parse_judilibre = "tp_regexps.scripts.parse_judilibre:main"
+
