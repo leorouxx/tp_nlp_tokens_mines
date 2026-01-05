@@ -4,6 +4,10 @@ Codes:
 
 <https://storage.gra.cloud.ovh.net/v1/AUTH_4d7d1bcd41914ee184ef80e2c75c4fb1/dila-legi-codes/codes.zip>
 
+## Modifications et Résultats
+
+Toutes les modifications et tous les résultats sont expliqués dans [`RAPPORT.md`](RAPPORT.md)
+
 ## Travailler sur le paquetage Python
 
 Installation de ce paquetage dans un environnement virtuel:
