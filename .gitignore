@@ -20,3 +20,7 @@ Data*.fs*
 coverage
 test
 *.sqlite
+.venv/
+data/
+output/
+codes/

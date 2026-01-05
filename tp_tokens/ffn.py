@@ -6,21 +6,85 @@ from .datasets import Datasets
 
 class BengioFFN:
 
-    def __init__(self, e_dims, n_hidden, context_size, nb_chars, g):
+    def __init__(self, 
+            e_dims : int, 
+            n_hidden : int, 
+            context_size : int, 
+            nb_tokens : int, 
+            g : torch.Generator
+        ):
         self.g = g
-        self.nb_chars = nb_chars
+        self.nb_tokens = nb_tokens
         self.e_dims = e_dims
         self.n_hidden = n_hidden
         self.context_size = context_size
         self.create_network()
 
+    # Méthodes pour sauvegarde d'un entrainement
+    @property
+    def state_dict(self):
+        return {
+            # paramètres
+            "C": self.C,
+            "W1": self.W1,
+            "W2": self.W2,
+            "b2": self.b2,
+            "bngain": self.bngain,
+            "bnbias": self.bnbias,
+
+            # batch norm running stats
+            "bnmean_running": self.bnmean_running,
+            "bnstd_running": self.bnstd_running,
+
+            # infos
+            "steps": self.steps,
+            "seed": self.g.seed(),
+
+            # hyperparamètres
+            "nb_tokens": self.nb_tokens,
+            "e_dims": self.e_dims,
+            "n_hidden": self.n_hidden,
+            "context_size": self.context_size,
+        }
+    
+    def save(self, path: str):
+        torch.save(self.state_dict, path)
+
+    @classmethod
+    def from_memory(cls, path: str):
+        checkpoint = torch.load(path, map_location="cpu")
+
+        model = cls(
+            e_dims=checkpoint["e_dims"],
+            n_hidden=checkpoint["n_hidden"],
+            context_size=checkpoint["context_size"],
+            nb_tokens=checkpoint["nb_tokens"],
+            g=torch.Generator().manual_seed(checkpoint["seed"]),
+        )
+
+        # paramètres
+        model.C.data = checkpoint["C"]
+        model.W1.data = checkpoint["W1"]
+        model.W2.data = checkpoint["W2"]
+        model.b2.data = checkpoint["b2"]
+        model.bngain.data = checkpoint["bngain"]
+        model.bnbias.data = checkpoint["bnbias"]
+
+        # batch norm
+        model.bnmean_running = checkpoint["bnmean_running"]
+        model.bnstd_running = checkpoint["bnstd_running"]
+
+        model.steps = checkpoint["steps"]
+
+        return model
+
     def layers(self):
-        self.C = torch.randn((self.nb_chars, self.e_dims), generator=self.g)
+        self.C = torch.randn((self.nb_tokens, self.e_dims), generator=self.g)
         fan_in = self.context_size * self.e_dims
         tanh_gain = 5/3
         self.W1 = torch.randn((self.context_size * self.e_dims, self.n_hidden), generator=self.g) * (tanh_gain / (fan_in ** 0.5))
-        self.W2 = torch.randn((self.n_hidden, self.nb_chars), generator=self.g) * 0.01  # Pour l'entropie
-        self.b2 = torch.randn(self.nb_chars, generator=self.g) * 0
+        self.W2 = torch.randn((self.n_hidden, self.nb_tokens), generator=self.g) * 0.01  # Pour l'entropie
+        self.b2 = torch.randn(self.nb_tokens, generator=self.g) * 0
         self.bngain = torch.ones((1, self.n_hidden))
         self.bnbias = torch.zeros((1, self.n_hidden))
 
@@ -59,7 +123,7 @@ class BengioFFN:
         if self.loss is not None:
             self.loss.backward()
 
-    def train(self, datasets: Datasets, max_steps, mini_batch_size):
+    def train(self, datasets: Datasets, max_steps: int, mini_batch_size: int):
         lossi = []
         for i in range(max_steps):
             # minibatch construct
@@ -73,7 +137,7 @@ class BengioFFN:
             self.backward()
 
             # update
-            lr = 0.2 if i < 100000 else 0.02 # step learning rate decay
+            lr = 0.2 if i < max_steps//2 else 0.02 # step learning rate decay
             self.update_grad(lr)
 
             # track stats
@@ -114,9 +178,10 @@ class BengioFFN:
         return loss.item()
 
     @torch.no_grad()
-    def generate_word(self, itoc, g):
+    def generate_sequence(self, int_to_token, g, context : list[int] | None = None):
         out = []
-        context = [0] * self.context_size
+        context = [0] * self.context_size + (context or [])
+        context = context[-self.context_size::]
         while True:
             emb = self.C[torch.tensor([context])]
             embcat = emb.view(1, -1)
@@ -133,20 +198,20 @@ class BengioFFN:
             if ix != 0:
                 out.append(ix)
             else:
-                # Stop when encounting '.'
+                # Stop when encounting EOS token
                 break
-        return ''.join(itoc[i] for i in out)
+        return ''.join(int_to_token[i] for i in out)
 
     @torch.no_grad()
-    def generate_words(self, n, itoc, g):
+    def generate_sequences(self, n, int_to_token, g):
         "Génère n mots."
         for _ in range(n):
-            yield self.generate_word(itoc, g)
+            yield self.generate_sequence(int_to_token, g)
 
     def __repr__(self):
         l = []
         l.append("<BengioMLP")
-        l.append(f'  nb_chars="{self.nb_chars}"')
+        l.append(f'  nb_tokens="{self.nb_tokens}"')
         l.append(f'  e_dims="{self.e_dims}"')
         l.append(f'  n_hidden="{self.n_hidden}"')
         l.append(f'  context_size="{self.context_size}"')

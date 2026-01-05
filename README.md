@@ -14,8 +14,19 @@ source .venv/tp_nlp_tokens_mines/bin/activate
 pip install -e .
 ```
 
+Entrainer un réseau
 ```bash
-train_generate_ffn ./civil_mots.txt
+train_ffn ./civil_mots.txt --savemodel "civil_mots.model"
+```
+
+Générer une séquence à partir d'un prompt
+```bash
+generate ./civil_mots.txt civil_mots.model --prompt "ju"
+```
+
+Scraper les sources juridiques
+```bash
+scrape_data codes_phrases.txt --datafolder data/ 
 ```
 
 ## Travailler sur le notebook
